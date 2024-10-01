@@ -41,7 +41,7 @@ function saveToFile(address, points) {
 
 // Функция для выполнения запроса с использованием прокси
 async function getNodeInfoWithProxy(address) {
-  let retries = 3; // Количество попыток на один адрес с разными прокси
+  let retries = 10; // Количество попыток на один адрес с разными прокси
 
   while (retries > 0) {
     // Случайный выбор прокси
@@ -62,6 +62,7 @@ async function getNodeInfoWithProxy(address) {
 
     const config = {
       httpsAgent: agent,
+      timeout: 10000, // Устанавливаем тайм-аут в 10 секунд
     };
 
     const url = `https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`;
