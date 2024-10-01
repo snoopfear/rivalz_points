@@ -53,20 +53,24 @@ async function getNodeInfoWithProxy(address) {
 
     try {
       const response = await axios.get(url, config);
-      const totalCurrentPoint = response.data.totalCurrentPoint;
-      console.log(`Адрес: ${address}, Прокси: ${proxy}, Очки: ${totalCurrentPoint}`);
 
-      // Отправляем результат в Telegram
-      sendToTelegram(`Адрес: ${address}, TotalCurrentPoint: ${totalCurrentPoint}`);
+      // Проверяем, вернулся ли корректный ответ
+      if (response.status === 200) {
+        const totalCurrentPoint = response.data.data.totalCurrentPoint; // Изменили путь к значению
+        console.log(`Адрес: ${address}, Прокси: ${proxy}, Очки: ${totalCurrentPoint}`);
+
+        // Отправляем результат в Telegram
+        sendToTelegram(`Адрес: ${address}, TotalCurrentPoint: ${totalCurrentPoint}`);
+      } else {
+        console.error(`Не удалось получить очки для адреса ${address}. Ответ от API:`, response.data);
+        sendToTelegram(`Не удалось получить очки для адреса ${address}. Ответ от API: ${JSON.stringify(response.data)}`);
+      }
       return; // Если запрос прошел успешно, выходим из цикла
     } catch (error) {
       console.error(`Ошибка с прокси ${proxy}: ${error.message}`);
       proxyIndex++; // Переходим к следующему прокси
     }
   }
-
-  // Если все прокси не сработали, отправляем уведомление
-  sendToTelegram(`Не удалось получить данные для адреса ${address} с использованием доступных прокси.`);
 }
 
 // Асинхронная функция для запуска парсера
@@ -76,8 +80,8 @@ async function parseAllAddresses() {
   }
 }
 
-// Запускаем парсер с заданным интервалом
-setInterval(parseAllAddresses, intervalMilliseconds);
+// Запускаем парсер
+parseAllAddresses();
 
-// Первый запуск парсера
-parseAllAddresses().catch(console.error);
+// Устанавливаем повтор каждые 12 часов
+setInterval(parseAllAddresses, intervalMilliseconds);
