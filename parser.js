@@ -1,70 +1,66 @@
 const fs = require('fs');
 const axios = require('axios');
+const TelegramBot = require('node-telegram-bot-api');
 const HttpsProxyAgent = require('https-proxy-agent');
-const { Telegraf } = require('telegraf'); // Убедитесь, что Telegraf установлен
 
-const TELEGRAM_BOT_TOKEN = '6769297888:AAFOeaKmGtsSSAGsSVGN-x3I1v_VQyh140M';
+// Укажите токен вашего бота и чат ID
+const TELEGRAM_TOKEN = '6769297888:AAFOeaKmGtsSSAGsSVGN-x3I1v_VQyh140M';
 const CHAT_ID = '257319019'; // ID вашего чата или группы
-const PROXY_LIST = 'proxies.txt'; // Список прокси
-const ADDRESS_FILE = 'address.txt'; // Файл с адресами
-const RETRY_INTERVAL = 0.01 * 60 * 60 * 1000; // 12 часов в миллисекундах
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
 
-const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+// Чтение адресов и прокси из файлов
+const addresses = fs.readFileSync('address.txt', 'utf8').split('\n').filter(Boolean);
+let proxies = fs.readFileSync('proxies.txt', 'utf8').split('\n').filter(Boolean);
 
-// Чтение адресов из файла
-async function readAddresses() {
-    const data = await fs.promises.readFile(ADDRESS_FILE, 'utf-8');
-    return data.split('\n').filter(Boolean);
+// Настраиваемый интервал времени между повторениями (в часах)
+const hoursInterval = 0.01; // Вы можете изменить значение на нужное количество часов
+
+// Преобразуем часы в миллисекунды для setInterval
+const intervalMilliseconds = hoursInterval * 60 * 60 * 1000;
+
+// Функция для отправки сообщения в Telegram
+function sendToTelegram(message) {
+  bot.sendMessage(CHAT_ID, message).catch((err) => {
+    console.error('Ошибка отправки сообщения в Telegram:', err.message);
+  });
 }
 
-// Функция для отправки сообщений в Telegram
-async function sendTelegramMessage(message) {
-    await bot.telegram.sendMessage(CHAT_ID, message);
-}
+// Функция для выполнения запроса с использованием прокси
+async function getNodeInfoWithProxy(address) {
+  while (proxies.length > 0) {
+    const proxy = proxies.shift(); // Берем первый прокси из списка
+    const proxyUrl = new URL(proxy);
 
-// Функция для получения информации о ноде с использованием прокси
-async function getNodeInfoWithProxy(address, proxyUrl) {
-    // Создание агента для прокси
-    const agent = new HttpsProxyAgent(proxyUrl.replace(/@/, ':')); // Заменить @ на %40 для корректного использования
+    const agent = new HttpsProxyAgent({
+      host: proxyUrl.hostname,
+      port: proxyUrl.port,
+      auth: `${proxyUrl.username}:${proxyUrl.password}`,
+    });
+
+    const config = {
+      httpsAgent: agent,
+    };
+
+    const url = `https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`;
 
     try {
-        const response = await axios.get(`https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`, {
-            httpsAgent: agent
-        });
-        return response.data; // Вернуть данные
+      const response = await axios.get(url, config);
+      const totalCurrentPoint = response.data.totalCurrentPoint;
+      console.log(`Адрес: ${address}, Прокси: ${proxy}, Очки: ${totalCurrentPoint}`);
+
+      // Отправляем результат в Telegram
+      sendToTelegram(`Адрес: ${address}, TotalCurrentPoint: ${totalCurrentPoint}`);
+      return; // Если запрос прошел успешно, выходим из цикла
     } catch (error) {
-        console.error(`Ошибка при получении данных для ${address} через прокси ${proxyUrl}:`, error.message);
-        return null; // Возврат null в случае ошибки
+      console.error(`Ошибка с прокси ${proxy}: ${error.message}`);
+      if (proxies.length === 0) {
+        proxies = fs.readFileSync('proxies.txt', 'utf8').split('\n').filter(Boolean); // Перезагружаем список прокси
+      }
     }
+  }
 }
 
-// Основная функция для парсинга адресов
+// Асинхронная функция для запуска парсера
 async function parseAllAddresses() {
-    const addresses = await readAddresses();
-    const results = [];
-
-    for (const address of addresses) {
-        let validProxy = null;
-        for (const proxy of PROXY_LIST) {
-            const data = await getNodeInfoWithProxy(address, proxy);
-            if (data) {
-                results.push({ address, totalCurrentPoint: data.totalCurrentPoint });
-                validProxy = proxy; // Найден рабочий прокси
-                break; // Прекратить поиск, если прокси работает
-            }
-        }
-
-        if (!validProxy) {
-            console.error(`Все прокси не сработали для ${address}`);
-        }
-    }
-
-    // Отправка результатов в Telegram
-    await sendTelegramMessage(JSON.stringify(results, null, 2));
-}
-
-// Запуск парсера с заданным интервалом
-setInterval(parseAllAddresses, RETRY_INTERVAL);
-
-// Первый запуск
-parseAllAddresses().catch(console.error);
+  for (const address of addresses) {
+    await getNodeInfoWithProxy(address
