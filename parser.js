@@ -30,8 +30,9 @@ function sendToTelegram(message) {
 }
 
 // Функция для сохранения результата в файл
-function saveToFile(message) {
+function saveToFile(address, points) {
   if (SAVE_TO_FILE) {
+    const message = `${address} ${points}`; // Формат: адрес и количество очков через пробел
     fs.appendFileSync('results.txt', message + '\n', (err) => {
       if (err) {
         console.error('Ошибка сохранения в файл:', err.message);
@@ -79,12 +80,11 @@ async function getNodeInfoWithProxy(address) {
       sendToTelegram(message);
 
       // Сохраняем результат в файл (если включено)
-      saveToFile(message);
+      saveToFile(address, totalCurrentPoint);
     } else {
       console.error(`Не удалось получить очки для адреса ${address}. Ответ от API:`, response.data);
       const errorMessage = `Не удалось получить очки для адреса ${address}. Ответ от API: ${JSON.stringify(response.data)}`;
       sendToTelegram(errorMessage);
-      saveToFile(errorMessage);
     }
   } catch (error) {
     console.error(`Ошибка с прокси ${randomProxy}: ${error.message}`);
