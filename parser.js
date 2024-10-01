@@ -4,8 +4,8 @@ const TelegramBot = require('node-telegram-bot-api');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
 // Укажите токен вашего бота и чат ID
-const TELEGRAM_TOKEN = '6769297888:AAFOeaKmGtsSSAGsSVGN-x3I1v_VQyh140M';
-const CHAT_ID = '257319019'; // ID вашего чата или группы
+const TELEGRAM_TOKEN = '';
+const CHAT_ID = ''; // ID вашего чата или группы
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
 
 // Включение/выключение отправки в Telegram
