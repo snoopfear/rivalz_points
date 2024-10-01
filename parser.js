@@ -1,7 +1,7 @@
 const fs = require('fs');
 const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
-const HttpsProxyAgent = require('https-proxy-agent');
+const HttpsProxyAgent = require('https-proxy-agent'); // Убедитесь, что библиотека импортирована правильно
 
 // Укажите токен вашего бота и чат ID
 const TELEGRAM_TOKEN = '6769297888:AAFOeaKmGtsSSAGsSVGN-x3I1v_VQyh140M';
@@ -27,15 +27,18 @@ function sendToTelegram(message) {
 async function getNodeInfoWithProxy(address) {
   let proxyIndex = 0; // Индекс текущего прокси
   while (proxyIndex < proxies.length) {
-    const proxy = proxies[proxyIndex]; // Берем текущий прокси из списка
-    const proxyUrl = new URL(proxy);
+    const proxy = proxies[proxyIndex].trim(); // Берем текущий прокси из списка
+    const proxyParts = proxy.split(':'); // Разделяем прокси на составляющие
+    if (proxyParts.length !== 4) {
+      console.error(`Некорректный формат прокси: ${proxy}`);
+      proxyIndex++; // Переходим к следующему прокси
+      continue; // Пропускаем некорректный прокси
+    }
+
+    const [hostname, port, username, password] = proxyParts;
 
     // Создаем агент для прокси
-    const agent = new HttpsProxyAgent({
-      host: proxyUrl.hostname,
-      port: proxyUrl.port,
-      auth: `${proxyUrl.username}:${proxyUrl.password}`,
-    });
+    const agent = new HttpsProxyAgent(`http://${username}:${password}@${hostname}:${port}`);
 
     const config = {
       httpsAgent: agent,
