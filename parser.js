@@ -13,7 +13,7 @@ const addresses = fs.readFileSync('address.txt', 'utf8').split('\n').filter(Bool
 let proxies = fs.readFileSync('proxies.txt', 'utf8').split('\n').filter(Boolean);
 
 // Настраиваемый интервал времени между повторениями (в часах)
-const hoursInterval = 12; // Вы можете изменить значение на нужное количество часов
+const hoursInterval = 0.01; // Вы можете изменить значение на нужное количество часов
 
 // Преобразуем часы в миллисекунды для setInterval
 const intervalMilliseconds = hoursInterval * 60 * 60 * 1000;
