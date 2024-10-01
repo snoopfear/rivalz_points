@@ -1,4 +1,4 @@
-/const fs = require('fs');
+const fs = require('fs');
 const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
 const HttpsProxyAgent = require('https-proxy-agent');
