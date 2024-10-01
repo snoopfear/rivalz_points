@@ -1,6 +1,7 @@
-const fs = require('fs');
+/const fs = require('fs');
 const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
+const HttpsProxyAgent = require('https-proxy-agent');
 
 // Укажите токен вашего бота и чат ID
 const TELEGRAM_TOKEN = '6769297888:AAFOeaKmGtsSSAGsSVGN-x3I1v_VQyh140M';
@@ -12,7 +13,7 @@ const addresses = fs.readFileSync('address.txt', 'utf8').split('\n').filter(Bool
 let proxies = fs.readFileSync('proxies.txt', 'utf8').split('\n').filter(Boolean);
 
 // Настраиваемый интервал времени между повторениями (в часах)
-const hoursInterval = 0.01; // Вы можете изменить значение на нужное количество часов
+const hoursInterval = 12; // Вы можете изменить значение на нужное количество часов
 
 // Преобразуем часы в миллисекунды для setInterval
 const intervalMilliseconds = hoursInterval * 60 * 60 * 1000;
@@ -28,15 +29,19 @@ function sendToTelegram(message) {
 async function getNodeInfoWithProxy(address) {
   while (proxies.length > 0) {
     const proxy = proxies.shift(); // Берем первый прокси из списка
-    const proxyUrl = new URL(proxy);
-    const agent = {
-      host: proxyUrl.hostname,
-      port: proxyUrl.port,
-      auth: proxyUrl.username ? `${proxyUrl.username}:${proxyUrl.password}` : null,
-    };
+
+    // Разбираем прокси в формате http://ip:port:username:password
+    const [ipPort, username, password] = proxy.split(':');
+    const [ip, port] = ipPort.split(':');
+
+    const agent = new HttpsProxyAgent({
+      host: ip,
+      port: port,
+      auth: `${username}:${password}`,
+    });
 
     const config = {
-      proxy: agent,
+      httpsAgent: agent,
     };
 
     const url = `https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`;
@@ -61,20 +66,10 @@ async function getNodeInfoWithProxy(address) {
 // Асинхронная функция для запуска парсера
 async function parseAllAddresses() {
   for (const address of addresses) {
-    await getNodeInfoWithProxy(address.trim()); // Убираем пробелы и выполняем запрос
+    await getNodeInfoWithProxy(address);
   }
 }
 
-// Функция для запуска парсинга каждые N часов
-function startParsingEveryInterval() {
-  parseAllAddresses(); // Запуск парсинга при старте
-
-  // Повторение задачи каждые N часов (где N задано в hoursInterval)
-  setInterval(() => {
-    console.log(`Запуск нового парсинга через ${hoursInterval} часов...`);
-    parseAllAddresses();
-  }, intervalMilliseconds);
-}
-
-// Запуск парсинга каждые N часов
-startParsingEveryInterval();
+// Запускаем парсер каждые hoursInterval часов
+parseAllAddresses();
+setInterval(parseAllAddresses, intervalMilliseconds);
