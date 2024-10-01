@@ -28,14 +28,19 @@ async function getNodeInfoWithProxy(address) {
   let proxyIndex = 0; // Индекс текущего прокси
   while (proxyIndex < proxies.length) {
     const proxy = proxies[proxyIndex].trim(); // Берем текущий прокси из списка
-    const proxyParts = proxy.split(':'); // Разделяем прокси на составляющие
-    if (proxyParts.length !== 4) {
+
+    // Проверяем, соответствует ли прокси ожидаемому формату
+    const proxyRegex = /^(http:\/\/)?([^:]+):([^@]+)@([^:]+):(\d+)$/; // Регулярное выражение для проверки формата
+    const match = proxy.match(proxyRegex);
+
+    if (!match) {
       console.error(`Некорректный формат прокси: ${proxy}`);
       proxyIndex++; // Переходим к следующему прокси
       continue; // Пропускаем некорректный прокси
     }
 
-    const [hostname, port, username, password] = proxyParts;
+    // Извлекаем данные из регулярного выражения
+    const [, , username, password, hostname, port] = match;
 
     // Создаем агент для прокси
     const agent = new HttpsProxyAgent(`http://${username}:${password}@${hostname}:${port}`);
@@ -67,7 +72,7 @@ async function getNodeInfoWithProxy(address) {
 // Асинхронная функция для запуска парсера
 async function parseAllAddresses() {
   for (const address of addresses) {
-    await getNodeInfoWithProxy(address); // Здесь добавлена закрывающая скобка
+    await getNodeInfoWithProxy(address);
   }
 }
 
