@@ -13,7 +13,7 @@ const addresses = fs.readFileSync('address.txt', 'utf8').split('\n').filter(Bool
 let proxies = fs.readFileSync('proxies.txt', 'utf8').split('\n').filter(Boolean);
 
 // Конфигурация для включения/отключения функций
-const SEND_TO_TELEGRAM = true; // Измените на false, чтобы отключить отправку в Telegram
+const SEND_TO_TELEGRAM = false; // Измените на false, чтобы отключить отправку в Telegram
 const SAVE_TO_FILE = true;     // Измените на false, чтобы отключить сохранение в файл
 
 // Настраиваемый интервал времени между повторениями (в часах)
