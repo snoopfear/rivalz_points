@@ -8,13 +8,15 @@ const TELEGRAM_TOKEN = '6769297888:AAFOeaKmGtsSSAGsSVGN-x3I1v_VQyh140M';
 const CHAT_ID = '257319019'; // ID вашего чата или группы
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
 
+// Включение/выключение отправки в Telegram
+const SEND_TO_TELEGRAM = false; // Установите в false, если не нужно отправлять сообщения в Telegram
+
+// Включение/выключение сохранения в файл
+const SAVE_TO_FILE = true; // Установите в false, если не нужно сохранять результат в файл
+
 // Чтение адресов и прокси из файлов
 const addresses = fs.readFileSync('address.txt', 'utf8').split('\n').filter(Boolean);
 let proxies = fs.readFileSync('proxies.txt', 'utf8').split('\n').filter(Boolean);
-
-// Конфигурация для включения/отключения функций
-const SEND_TO_TELEGRAM = false; // Измените на false, чтобы отключить отправку в Telegram
-const SAVE_TO_FILE = true;     // Измените на false, чтобы отключить сохранение в файл
 
 // Настраиваемый интервал времени между повторениями (в часах)
 let hoursInterval = 12; // Можно изменить значение на нужное количество часов
@@ -32,63 +34,66 @@ function sendToTelegram(message) {
 // Функция для сохранения результата в файл
 function saveToFile(address, points) {
   if (SAVE_TO_FILE) {
-    const message = `${address} ${points}`; // Формат: адрес и количество очков через пробел
-    fs.appendFileSync('results.txt', message + '\n', (err) => {
-      if (err) {
-        console.error('Ошибка сохранения в файл:', err.message);
-      }
-    });
+    const data = `${address} ${points}\n`;
+    fs.appendFileSync('results.txt', data, 'utf8');
   }
 }
 
 // Функция для выполнения запроса с использованием прокси
 async function getNodeInfoWithProxy(address) {
-  // Случайный выбор прокси
-  const randomProxy = proxies[Math.floor(Math.random() * proxies.length)].trim();
+  let retries = 3; // Количество попыток на один адрес с разными прокси
 
-  // Проверяем, соответствует ли прокси ожидаемому формату
-  const proxyRegex = /^(http:\/\/)?([^:]+):([^@]+)@([^:]+):(\d+)$/; // Регулярное выражение для проверки формата
-  const match = randomProxy.match(proxyRegex);
+  while (retries > 0) {
+    // Случайный выбор прокси
+    const randomProxy = proxies[Math.floor(Math.random() * proxies.length)].trim();
 
-  if (!match) {
-    console.error(`Некорректный формат прокси: ${randomProxy}`);
-    return; // Прерываем выполнение функции, если прокси некорректный
-  }
+    // Проверяем, соответствует ли прокси ожидаемому формату
+    const proxyRegex = /^(http:\/\/)?([^:]+):([^@]+)@([^:]+):(\d+)$/;
+    const match = randomProxy.match(proxyRegex);
 
-  // Извлекаем данные из регулярного выражения
-  const [, , username, password, hostname, port] = match;
-
-  // Создаем агент для прокси
-  const agent = new HttpsProxyAgent(`http://${username}:${password}@${hostname}:${port}`);
-
-  const config = {
-    httpsAgent: agent,
-  };
-
-  const url = `https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`;
-
-  try {
-    const response = await axios.get(url, config);
-
-    // Проверяем, вернулся ли корректный ответ
-    if (response.status === 200) {
-      const totalCurrentPoint = response.data.data.totalCurrentPoint; // Изменили путь к значению
-      const message = `Адрес: ${address}, Прокси: ${randomProxy}, Очки: ${totalCurrentPoint}`;
-      console.log(message);
-
-      // Отправляем результат в Telegram (если включено)
-      sendToTelegram(message);
-
-      // Сохраняем результат в файл (если включено)
-      saveToFile(address, totalCurrentPoint);
-    } else {
-      console.error(`Не удалось получить очки для адреса ${address}. Ответ от API:`, response.data);
-      const errorMessage = `Не удалось получить очки для адреса ${address}. Ответ от API: ${JSON.stringify(response.data)}`;
-      sendToTelegram(errorMessage);
+    if (!match) {
+      console.error(`Некорректный формат прокси: ${randomProxy}`);
+      retries--; // Уменьшаем количество попыток
+      continue; // Пропускаем некорректный прокси
     }
-  } catch (error) {
-    console.error(`Ошибка с прокси ${randomProxy}: ${error.message}`);
+
+    const [, , username, password, hostname, port] = match;
+    const agent = new HttpsProxyAgent(`http://${username}:${password}@${hostname}:${port}`);
+
+    const config = {
+      httpsAgent: agent,
+    };
+
+    const url = `https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`;
+
+    try {
+      const response = await axios.get(url, config);
+
+      if (response.status === 200) {
+        const totalCurrentPoint = response.data.data.totalCurrentPoint;
+        const message = `Адрес: ${address}, Прокси: ${randomProxy}, Очки: ${totalCurrentPoint}`;
+        console.log(message);
+
+        // Отправляем результат в Telegram
+        sendToTelegram(message);
+
+        // Сохраняем результат в файл
+        saveToFile(address, totalCurrentPoint);
+
+        return; // Выход из цикла, если запрос прошел успешно
+      } else {
+        console.error(`Не удалось получить очки для адреса ${address}. Ответ от API:`, response.data);
+        sendToTelegram(`Не удалось получить очки для адреса ${address}. Ответ от API: ${JSON.stringify(response.data)}`);
+        return; // Не повторяем запрос, если получен некорректный ответ от сервера
+      }
+    } catch (error) {
+      console.error(`Ошибка с прокси ${randomProxy}: ${error.message}`);
+      retries--; // Уменьшаем количество попыток при неудачном запросе
+    }
   }
+
+  console.error(`Не удалось получить очки для адреса ${address} после нескольких попыток.`);
+  sendToTelegram(`Не удалось получить очки для адреса ${address} после нескольких попыток.`);
 }
 
 // Асинхронная функция для запуска парсера
