@@ -1,7 +1,7 @@
 const fs = require('fs');
 const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
-const HttpsProxyAgent = require('https-proxy-agent'); // Убедитесь, что библиотека импортирована правильно
+const { HttpsProxyAgent } = require('https-proxy-agent'); // Убедитесь, что импорт выглядит именно так
 
 // Укажите токен вашего бота и чат ID
 const TELEGRAM_TOKEN = '6769297888:AAFOeaKmGtsSSAGsSVGN-x3I1v_VQyh140M';
