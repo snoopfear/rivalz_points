@@ -25,7 +25,7 @@ async function sendTelegramMessage(message) {
 // Функция для получения информации о ноде с использованием прокси
 async function getNodeInfoWithProxy(address, proxyUrl) {
     // Создание агента для прокси
-    const agent = new HttpsProxyAgent(proxyUrl.replace(/@/, '%40')); // Заменить @ на %40 для корректного использования
+    const agent = new HttpsProxyAgent(proxyUrl.replace(/@/, ':')); // Заменить @ на %40 для корректного использования
 
     try {
         const response = await axios.get(`https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`, {
