@@ -13,9 +13,7 @@ const addresses = fs.readFileSync('address.txt', 'utf8').split('\n').filter(Bool
 let proxies = fs.readFileSync('proxies.txt', 'utf8').split('\n').filter(Boolean);
 
 // Настраиваемый интервал времени между повторениями (в часах)
-const hoursInterval = 0.01; // Вы можете изменить значение на нужное количество часов
-
-// Преобразуем часы в миллисекунды для setInterval
+let hoursInterval = 12; // Можно изменить значение на нужное количество часов
 const intervalMilliseconds = hoursInterval * 60 * 60 * 1000;
 
 // Функция для отправки сообщения в Telegram
@@ -27,10 +25,12 @@ function sendToTelegram(message) {
 
 // Функция для выполнения запроса с использованием прокси
 async function getNodeInfoWithProxy(address) {
-  while (proxies.length > 0) {
-    const proxy = proxies.shift(); // Берем первый прокси из списка
+  let proxyIndex = 0; // Индекс текущего прокси
+  while (proxyIndex < proxies.length) {
+    const proxy = proxies[proxyIndex]; // Берем текущий прокси из списка
     const proxyUrl = new URL(proxy);
 
+    // Создаем агент для прокси
     const agent = new HttpsProxyAgent({
       host: proxyUrl.hostname,
       port: proxyUrl.port,
@@ -53,14 +53,23 @@ async function getNodeInfoWithProxy(address) {
       return; // Если запрос прошел успешно, выходим из цикла
     } catch (error) {
       console.error(`Ошибка с прокси ${proxy}: ${error.message}`);
-      if (proxies.length === 0) {
-        proxies = fs.readFileSync('proxies.txt', 'utf8').split('\n').filter(Boolean); // Перезагружаем список прокси
-      }
+      proxyIndex++; // Переходим к следующему прокси
     }
   }
+
+  // Если все прокси не сработали, отправляем уведомление
+  sendToTelegram(`Не удалось получить данные для адреса ${address} с использованием доступных прокси.`);
 }
 
 // Асинхронная функция для запуска парсера
 async function parseAllAddresses() {
   for (const address of addresses) {
-    await getNodeInfoWithProxy(address
+    await getNodeInfoWithProxy(address); // Здесь добавлена закрывающая скобка
+  }
+}
+
+// Запускаем парсер с заданным интервалом
+setInterval(parseAllAddresses, intervalMilliseconds);
+
+// Первый запуск парсера
+parseAllAddresses().catch(console.error);
