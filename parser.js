@@ -1,7 +1,7 @@
 const fs = require('fs');
 const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
-const { HttpsProxyAgent } = require('https-proxy-agent'); // Убедитесь, что импорт выглядит именно так
+const { HttpsProxyAgent } = require('https-proxy-agent');
 
 // Укажите токен вашего бота и чат ID
 const TELEGRAM_TOKEN = '6769297888:AAFOeaKmGtsSSAGsSVGN-x3I1v_VQyh140M';
@@ -25,51 +25,46 @@ function sendToTelegram(message) {
 
 // Функция для выполнения запроса с использованием прокси
 async function getNodeInfoWithProxy(address) {
-  let proxyIndex = 0; // Индекс текущего прокси
-  while (proxyIndex < proxies.length) {
-    const proxy = proxies[proxyIndex].trim(); // Берем текущий прокси из списка
+  // Случайный выбор прокси
+  const randomProxy = proxies[Math.floor(Math.random() * proxies.length)].trim();
 
-    // Проверяем, соответствует ли прокси ожидаемому формату
-    const proxyRegex = /^(http:\/\/)?([^:]+):([^@]+)@([^:]+):(\d+)$/; // Регулярное выражение для проверки формата
-    const match = proxy.match(proxyRegex);
+  // Проверяем, соответствует ли прокси ожидаемому формату
+  const proxyRegex = /^(http:\/\/)?([^:]+):([^@]+)@([^:]+):(\d+)$/; // Регулярное выражение для проверки формата
+  const match = randomProxy.match(proxyRegex);
 
-    if (!match) {
-      console.error(`Некорректный формат прокси: ${proxy}`);
-      proxyIndex++; // Переходим к следующему прокси
-      continue; // Пропускаем некорректный прокси
+  if (!match) {
+    console.error(`Некорректный формат прокси: ${randomProxy}`);
+    return; // Прерываем выполнение функции, если прокси некорректный
+  }
+
+  // Извлекаем данные из регулярного выражения
+  const [, , username, password, hostname, port] = match;
+
+  // Создаем агент для прокси
+  const agent = new HttpsProxyAgent(`http://${username}:${password}@${hostname}:${port}`);
+
+  const config = {
+    httpsAgent: agent,
+  };
+
+  const url = `https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`;
+
+  try {
+    const response = await axios.get(url, config);
+
+    // Проверяем, вернулся ли корректный ответ
+    if (response.status === 200) {
+      const totalCurrentPoint = response.data.data.totalCurrentPoint; // Изменили путь к значению
+      console.log(`Адрес: ${address}, Прокси: ${randomProxy}, Очки: ${totalCurrentPoint}`);
+
+      // Отправляем результат в Telegram
+      sendToTelegram(`Адрес: ${address}, TotalCurrentPoint: ${totalCurrentPoint}`);
+    } else {
+      console.error(`Не удалось получить очки для адреса ${address}. Ответ от API:`, response.data);
+      sendToTelegram(`Не удалось получить очки для адреса ${address}. Ответ от API: ${JSON.stringify(response.data)}`);
     }
-
-    // Извлекаем данные из регулярного выражения
-    const [, , username, password, hostname, port] = match;
-
-    // Создаем агент для прокси
-    const agent = new HttpsProxyAgent(`http://${username}:${password}@${hostname}:${port}`);
-
-    const config = {
-      httpsAgent: agent,
-    };
-
-    const url = `https://be.rivalz.ai/api-v1/orbit-db/total-node-info/${address}`;
-
-    try {
-      const response = await axios.get(url, config);
-
-      // Проверяем, вернулся ли корректный ответ
-      if (response.status === 200) {
-        const totalCurrentPoint = response.data.data.totalCurrentPoint; // Изменили путь к значению
-        console.log(`Адрес: ${address}, Прокси: ${proxy}, Очки: ${totalCurrentPoint}`);
-
-        // Отправляем результат в Telegram
-        sendToTelegram(`Адрес: ${address}, TotalCurrentPoint: ${totalCurrentPoint}`);
-      } else {
-        console.error(`Не удалось получить очки для адреса ${address}. Ответ от API:`, response.data);
-        sendToTelegram(`Не удалось получить очки для адреса ${address}. Ответ от API: ${JSON.stringify(response.data)}`);
-      }
-      return; // Если запрос прошел успешно, выходим из цикла
-    } catch (error) {
-      console.error(`Ошибка с прокси ${proxy}: ${error.message}`);
-      proxyIndex++; // Переходим к следующему прокси
-    }
+  } catch (error) {
+    console.error(`Ошибка с прокси ${randomProxy}: ${error.message}`);
   }
 }
 
